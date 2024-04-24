@@ -80,8 +80,39 @@ class tool:
 
         return file_bits_num, sys_bits_num
 
+    def xor(self, seq_list, digit=4):
+        if len(seq_list) == 1:
+            return seq_list[0]
 
-    def xor(self, seq_list, digit = 4):
+        len_list = set([len(i) for i in seq_list])
+        if len(len_list) != 1:
+            raise ValueError("The length of two sequences is not same!!\n")
+
+        xor_seq = []
+        for i in range(len(seq_list[0])):
+            a = int(seq_list[0][i])
+            b = int(seq_list[1][i])
+
+            if a == b:
+                c = 0
+            elif a+b == digit-1:
+                c = digit-1
+            else:
+                for j in range(digit-1):
+                    if abs(a-b) == j:
+                        c = j
+                        break
+            xor_seq.append(str(c))
+
+        return xor_seq
+
+
+
+
+    def xorRemain(self, seq_list, digit = 5):
+        if len(seq_list) == 1:
+            return seq_list[0]
+
         len_list = set([len(i) for i in seq_list])
         if len(len_list) != 1:
             raise ValueError("The length of two sequences is not same!!\n")
@@ -94,7 +125,7 @@ class tool:
 
         return xor_seq
 
-    def xorDecode(self, xor_seq, seq_1, digit = 4):
+    def xorRemainDecode(self, xor_seq, seq_1, digit = 5):
         if len(xor_seq) != seq_1:
             raise ValueError("The length of two sequences is not same!!\n")
 
@@ -230,8 +261,10 @@ class insertEncode:
             except:
                 _seq_list = [j for j in quater_seq_list_no_index[i:]]
 
-
-            xor_seq = tool().xor(_seq_list)
+            if math.log(self.system, 2) == int(math.log(self.system, 2)):
+                xor_seq = tool().xor(_seq_list)
+            else:
+                xor_seq = tool().xorRemain(_seq_list)
             redanduncy_list.append(xor_seq)
 
         quater_seq_list_no_index += redanduncy_list
@@ -1463,7 +1496,7 @@ def linuxComand():
     add_parser.add_argument('-l', '--split_len', type=int, default = 200, help='The length of original segment, not the final length, default=[200]')
     add_parser.add_argument('-homo', '--homopolymer', type=int, default = 4, help='The length of homopolymers, default = [4]')
     add_parser.add_argument('-gc', '--gc_standard', type=float, default = 0.5, help='The expected standard GC ratio, default = [0.5]')
-    add_parser.add_argument('-r', '--redanduncy', type=float, default = 0, help='Default = [0]')
+    add_parser.add_argument('-r', '--redanduncy', type=0, default = 0, help='Default = [0], value should be in [0, 0.5]')
     add_parser.add_argument('-s', '--system', type=int, default = 4, help='The type of bases of storage system, default = [4]')
 
     add_parser = subparsers.add_parser('decode')
@@ -1489,11 +1522,11 @@ if __name__ == "__main__":
 
     # input_path = "D:/BaiduSyncdisk/中科院先进院合成所/项目/2021_12_06-分割插入编码/修饰碱基测序方法构建/Nanopore/input/DNA.txt"
     # encode_dir = "D:/BaiduSyncdisk/中科院先进院合成所/项目/2021_12_06-分割插入编码/修饰碱基测序方法构建/Nanopore/encode"
-    # # input_path = "D:/BaiduSyncdisk/中科院先进院合成所/项目/2021_12_06-分割插入编码/test_data/tt.txt"
+    # input_path = "D:/BaiduSyncdisk/中科院先进院合成所/项目/2021_12_06-分割插入编码/test_data/tt.txt"
     # # input_path = "D:/BaiduSyncdisk/中科院先进院合成所/项目/2021_12_06-分割插入编码/test_data/audio_test/test_1000.mp3"
-    # # encode_dir = os.path.dirname(input_path)
-    # redanduncy = 0
-    # system = 4
+    # encode_dir = os.path.dirname(input_path)
+    # redanduncy = 0.5
+    # system = 5
     # split_len = 370
     # homo = 3
     # cl = encode(input_path, encode_dir, redanduncy = redanduncy, system = system, split_len = split_len, homo = homo)
