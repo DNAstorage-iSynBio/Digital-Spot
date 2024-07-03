@@ -5,6 +5,7 @@ Created on Mon Jan 25 11:16:45 2024
 @author: Wei Qiang
 """
 import sys, copy, math, array, io, os, cv2, random
+import numpy as np
 from itertools import combinations
 from md5hash import scan
 from PIL import Image
@@ -241,11 +242,11 @@ class insertEncode:
         if self.redanduncy == 0:
             return
 
-        seq_num = len(self.quater_seq_list)*(self.redanduncy+1)
-        if seq_num > int(seq_num):
-            seq_num = int(seq_num) + 1
-        else:
-            seq_num = int(seq_num)
+        seq_num = np.ceil(len(self.quater_seq_list)*(self.redanduncy+1))
+        # if seq_num > int(seq_num):
+        #     seq_num = int(seq_num) + 1
+        # else:
+        #     seq_num = int(seq_num)
 
         # new index 
         idnex_len = len(tool().decimal2OtherSystem(seq_num-1,self.system))
@@ -268,6 +269,7 @@ class insertEncode:
             redanduncy_list.append(xor_seq)
 
         quater_seq_list_no_index += redanduncy_list
+
 
         # add index
         quater_seq_list = []
@@ -545,6 +547,10 @@ class insertEncode:
             with open(self.output_path, "w") as f:
                 for seq in self.nt_seq_list:
                     f.write("".join(seq)+"\n")
+
+            with open(self.output_path+"_number.dna", "w") as f:
+                for seq in self.total_seq_list:
+                    f.write(",".join(seq)+"\n")
 
         else:
             with open(self.output_path, "w", encoding = "utf-8") as f:
@@ -1106,6 +1112,7 @@ class insertDecode:
         for i in range(0, len(self.part_seq_list), int(self.config_dic["runningLength"])):
             index = [int(x) for x in self.part_seq_list[i][:int(self.config_dic["indexLength"])]]
 
+
             unit_seq_list = self.part_seq_list[i: i+ int(self.config_dic["runningLength"])]
             index_head_unit_seq_list = [seq[-1*part_index_len:] + seq[len(index):-1*part_index_len] for seq in unit_seq_list]
             index_head_unit_seq_list.sort()
@@ -1114,6 +1121,7 @@ class insertDecode:
             for seq in index_head_unit_seq_list:
                 part_recover_seq += seq[part_index_len:]
 
+            part_recover_seq = part_recover_seq[:int(self.config_dic["splitLength"])]
             part_recover_seq = index + part_recover_seq
             part_recover_seq_list.append(part_recover_seq)
 
@@ -1127,10 +1135,98 @@ class insertDecode:
         if self.config_dic["redanduncy"] == "0":
             return
 
+        new_total_seq_dic = {}
         total_seq_list = self.total_seq_list
-        total_seq_list = total_seq_list[:int(self.config_dic["sequenceNumber"])]
+        len_l = [len(x) for x in total_seq_list]
+
+        idnex_len = int(self.config_dic["indexLength"])
+        seq_num = int(self.config_dic["sequenceNumber"])
+        r = float(self.config_dic["redanduncy"])
+
+        for qua_seq in total_seq_list:
+            index = tool().convert2Decimal(qua_seq[:idnex_len], self.system)
+            if index < seq_num:
+                try:
+                    new_total_seq_dic[index].append(qua_seq)
+                except:
+                    new_total_seq_dic[index] = [qua_seq]
+
+            else:
+                # 目前只考虑2条异或
+                index_1 = int((index - seq_num)/r)
+                index_2 = index_1 + 1
+                index_1_q = [int(x) for x in tool().decimal2OtherSystem(index_1, self.system, idnex_len)]
+                index_2_q = [int(x) for x in tool().decimal2OtherSystem(index_2, self.system, idnex_len)]
+
+                if index_1 >= seq_num:
+                    continue
+
+                if self.system == 4:
+                    # 其余进制还没有写
+                    if index_2 >= seq_num:
+                        # 原序列为基数条时，
+                        seq_1 = index_1_q + qua_seq[idnex_len:]
+                        try:
+                            new_total_seq_dic[index_1].append(seq_1)
+                        except:
+                            new_total_seq_dic[index_1] = [seq_1]
+
+                    else:
+                        try:
+                            seq_2 = [index_2_q + tool().xor([x[idnex_len:], qua_seq[idnex_len:]]) for x in new_total_seq_dic[index_1]]
+                        except:
+                            seq_2 = []
+
+                        try:
+                            new_total_seq_dic[index_2] += seq_2
+                        except:
+                            new_total_seq_dic[index_2] = seq_2
+
+
+                        try:
+                            seq_1 = [index_1_q + tool().xor([x[idnex_len:], qua_seq[idnex_len:]]) for x in new_total_seq_dic[index_2]]
+                        except:
+                            seq_1 = []
+                        try:
+                            if seq_1 not in new_total_seq_dic[index_1]:
+                                new_total_seq_dic[index_1] += seq_1
+                        except:
+                            new_total_seq_dic[index_1] = seq_1
+
+                        x = new_total_seq_dic[index_1][0]
+                        # print([len(x), len(qua_seq)])
+                        # print(index_1, index_2, seq_1, seq_2)
+                        # return
+
+
+        total_seq_list = []
+        for key, value in new_total_seq_dic.items():
+            for seq in value:
+                if seq not in total_seq_list:
+                    total_seq_list.append(seq)
+        total_seq_list.sort()
+
+        # remove repeat
+
+        # save
+        num_path = f"{self.save_path}.num"
+        with open(num_path, "w") as f:
+            for i in total_seq_list:
+                i_l = [str(x) for x in i]
+                line = ",".join(i_l)+"\n"
+                f.write(line)
+
+
+
+
+
+
+
+
+        # total_seq_list = total_seq_list[:int(self.config_dic["sequenceNumber"])]
 
         self.total_seq_list = total_seq_list
+        # print(len(total_seq_list))
 
     def combineSeq(self):
         total_seq_list = self.total_seq_list
@@ -1147,7 +1243,7 @@ class insertDecode:
             quater_seq = quater_seq[int(self.config_dic["indexLength"]):]
             quater_seq_complement += quater_seq
 
-        self.total_seq_list = total_seq_list
+        # self.total_seq_list = total_seq_list
         self.quater_seq_complement = quater_seq_complement
 
 
@@ -1192,7 +1288,6 @@ class textDecode(insertDecode):
             cha_num = tool().decimal2OtherSystem(decimal_number, file_system, file_bits_num)
             _cha_list = [chr(int(x)) for x in cha_num]
             cha_list += _cha_list
-
 
         self.cha_seq = "".join(cha_list)
 
@@ -1276,7 +1371,8 @@ class imageDecode(insertDecode):
     def writeFile(self):
         width = int(self.config_dic["width"])
         height = int(self.config_dic["height"])
-        dpi = int(self.config_dic["dpi"])
+        dpi = float(self.config_dic["dpi"])
+        dpi = int(dpi)
 
         im = Image.new("RGB", size= (width, height))
 
@@ -1444,7 +1540,7 @@ def encode(input_path, encode_dir, split_len=200, homo=4, gc_standard = 0.5, red
 
     if file_extension in ["txt"]:
         cl = textEncode(input_path, encode_dir, split_len = split_len, homo = homo, gc_standard = gc_standard, redanduncy = redanduncy, system = system)
-    elif file_extension in ["jpg", "jpeg", "png"]:
+    elif file_extension in ["jpg", "jpeg", "png", "bmp"]:
         cl = imageEncode(input_path, encode_dir, split_len = split_len, homo = homo, gc_standard = gc_standard, redanduncy = redanduncy, system = system)
     elif file_extension in ["mp3", "wav"]:
         cl = audioEncode(input_path, encode_dir, split_len = split_len, homo = homo, gc_standard = gc_standard, redanduncy = redanduncy, system = system)
@@ -1470,7 +1566,7 @@ def decode(encode_dir, decode_dir):
 
     if file_extension in ["txt"]:
         cl = textDecode(encode_dir, decode_dir)
-    elif file_extension in ["jpg", "jpeg", "png"]:
+    elif file_extension in ["jpg", "jpeg", "png", "bmp"]:
         cl = imageDecode(encode_dir, decode_dir)
     elif file_extension in ["mp3", "wav"]:
         cl = audioDecode(encode_dir, decode_dir)
@@ -1496,7 +1592,7 @@ def linuxComand():
     add_parser.add_argument('-l', '--split_len', type=int, default = 200, help='The length of original segment, not the final length, default=[200]')
     add_parser.add_argument('-homo', '--homopolymer', type=int, default = 4, help='The length of homopolymers, default = [4]')
     add_parser.add_argument('-gc', '--gc_standard', type=float, default = 0.5, help='The expected standard GC ratio, default = [0.5]')
-    add_parser.add_argument('-r', '--redanduncy', type=0, default = 0, help='Default = [0], value should be in [0, 0.5]')
+    add_parser.add_argument('-r', '--redanduncy', type=float, default = 0, help='Default = [0], value should be in [0, 0.5]')
     add_parser.add_argument('-s', '--system', type=int, default = 4, help='The type of bases of storage system, default = [4]')
 
     add_parser = subparsers.add_parser('decode')
@@ -1524,11 +1620,14 @@ if __name__ == "__main__":
     # encode_dir = "D:/BaiduSyncdisk/中科院先进院合成所/项目/2021_12_06-分割插入编码/修饰碱基测序方法构建/Nanopore/encode"
     # input_path = "D:/BaiduSyncdisk/中科院先进院合成所/项目/2021_12_06-分割插入编码/test_data/tt.txt"
     # # input_path = "D:/BaiduSyncdisk/中科院先进院合成所/项目/2021_12_06-分割插入编码/test_data/audio_test/test_1000.mp3"
-    # encode_dir = os.path.dirname(input_path)
+    # input_path = "D:/BaiduSyncdisk/中科院先进院合成所/项目/2021_12_06-分割插入编码/python/owl-1845060_1280_1000000.bmp"
+    # # input_path = "D:/BaiduSyncdisk/中科院先进院合成所/项目/2021_12_06-分割插入编码/test_data/English.txt"
+    # encode_dir = "D:/BaiduSyncdisk/中科院先进院合成所/项目/2021_12_06-分割插入编码/绘图-20240320/PythonPlot/ECC/encode/errorRate_0"
+    # # encode_dir = os.path.dirname(input_path)
     # redanduncy = 0.5
-    # system = 5
-    # split_len = 370
-    # homo = 3
+    # system = 4
+    # split_len = 150
+    # homo = 4
     # cl = encode(input_path, encode_dir, redanduncy = redanduncy, system = system, split_len = split_len, homo = homo)
 
     # quater_seq=cl.quater_seq
@@ -1539,15 +1638,15 @@ if __name__ == "__main__":
     # nt_seq_list = cl.nt_seq_list
     # shifted_sample = cl.shifted_sample
 
-    # # gc_list = [(i.count("C")+i.count("G"))/len(i) for i in nt_seq_list]
-    # # gc_list.sort()
-    # # print(round(gc_list[0], 4), round(gc_list[-1],4))
+    # gc_list = [(i.count("C")+i.count("G"))/len(i) for i in nt_seq_list]
+    # gc_list.sort()
+    # print(round(gc_list[0], 4), round(gc_list[-1],4))
 
     # #########################  decode
-    # encode_dir = os.path.dirname(input_path)+os.sep+os.path.basename(input_path).replace(".", "_")
-    # decode_dir = encode_dir
-    # encode_dir += os.sep + "DNA_txt"
-    # decode_dir = "D:/BaiduSyncdisk/中科院先进院合成所/项目/2021_12_06-分割插入编码/修饰碱基测序方法构建/Nanopore/decode"
+    # encode_dir = encode_dir+os.sep+os.path.basename(input_path).replace(".", "_")
+    # decode_dir = "D:/BaiduSyncdisk/中科院先进院合成所/项目/2021_12_06-分割插入编码/绘图-20240320/PythonPlot/ECC/decode/errorRate_0"
+    # # encode_dir += os.sep + "DNA_txt"
+    # # decode_dir = "D:/BaiduSyncdisk/中科院先进院合成所/项目/2021_12_06-分割插入编码/修饰碱基测序方法构建/Nanopore/decode"
 
     # cld = decode(encode_dir, decode_dir)
 
